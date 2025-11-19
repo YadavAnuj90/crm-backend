@@ -1,34 +1,31 @@
 const constants = require("../utils/constants");
-const User = require("../models/user.model");
 
-const isAdmin = async (req, res, next) => {
-    const user = await User.findOne({ userId: req.userId });
-    if (!user || user.userType !== constants.userTypes.admin) {
-        return res.status(403).send({ message: "Admin role required!" });
-    }
-    next();
+exports.isSuperAdmin = (req, res, next) => {
+  if (req.userType !== constants.userTypes.superadmin) {
+    return res.status(403).send({ message: "Only Super Admin can access this" });
+  }
+  next();
+};
+
+exports.isAdmin = (req, res, next) => {
+  if (req.userType !== constants.userTypes.admin) {
+    return res.status(403).send({ message: "Only Admin can access this" });
+  }
+  next();
 };
 
 
-const isEngineer = async (req, res, next) => {
-    const user = await User.findOne({ userId: req.userId });
-    if (!user || user.userType !== constants.userTypes.engineer) {
-        return res.status(403).send({ message: "Engineer role required!" });
-    }
-    next();
+exports.isEngineer = (req, res, next) => {
+  if (req.userType !== constants.userTypes.engineer) {
+    return res.status(403).send({ message: "Only Engineer can access this" });
+  }
+  next();
 };
 
 
-const isCustomer = async (req, res, next) => {
-    const user = await User.findOne({ userId: req.userId });
-    if (!user || user.userType !== constants.userTypes.customer) {
-        return res.status(403).send({ message: "Customer role required!" });
-    }
-    next();
-};
-
-module.exports = {
-    isAdmin,
-    isEngineer,
-    isCustomer
+exports.isCustomer = (req, res, next) => {
+  if (req.userType !== constants.userTypes.customer) {
+    return res.status(403).send({ message: "Only Customer can access this" });
+  }
+  next();
 };

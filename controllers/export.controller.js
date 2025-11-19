@@ -17,6 +17,7 @@ exports.exportExcel = async (req, res) => {
       { header: "Status", key: "ticketStatus", width: 10 },
       { header: "Reported By", key: "reportedBy", width: 15 },
       { header: "Assigned To", key: "assignedTo", width: 15 }
+      
     ];
 
     tickets.forEach(t => sheet.addRow(t));

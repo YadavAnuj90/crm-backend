@@ -19,7 +19,7 @@ async function sendEmail(to, subject, text, html = null) {
       html: html || text
     });
 
-    console.log("📧 Email sent to:", to);
+    console.warn("📧 Email sent to:", to);
   } catch (err) {
     console.error("Email error:", err);
   }

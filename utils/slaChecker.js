@@ -15,7 +15,7 @@ async function checkSla() {
     );
 
     if (overdueTickets.modifiedCount > 0) {
-      console.log(`⚠ ${overdueTickets.modifiedCount} tickets became overdue`);
+      console.error(`⚠ ${overdueTickets.modifiedCount} tickets became overdue`);
     }
   } catch (err) {
     console.error("SLA check error:", err);

@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
       },
        userType : {
          type: String,
-         enum: [constants.userTypes.customer, constants.userTypes.engineer, constants.userTypes.admin],
+         enum: [constants.userTypes.customer, constants.userTypes.engineer,constants.userTypes.superadmin, constants.userTypes.admin],
          required: true,
          default: constants.userTypes.customer
 

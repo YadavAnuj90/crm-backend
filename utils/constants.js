@@ -1,9 +1,10 @@
 
 module.exports = {
      userTypes : {
-         customer: "CUSTOMER",
-         engineer: "ENGINEER",
-         admin: "ADMIN"
+         superadmin: "SUPERADMIN",
+  admin: "ADMIN",
+  engineer: "ENGINEER",
+  customer: "CUSTOMER",
      },
       userStatuses : {
         pending: "PENDING",

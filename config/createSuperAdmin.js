@@ -9,7 +9,7 @@ async function createSuperAdmin() {
     });
 
     if (existing) {
-      console.log("Super Admin already exists.");
+      console.warn("Super Admin already exists.");
       return;
     }
 
@@ -23,7 +23,7 @@ async function createSuperAdmin() {
     };
 
     await User.create(superAdmin);
-    console.log("⭐ Super Admin created successfully!");
+    console.warn("⭐ Super Admin created successfully!");
 
   } catch (err) {
     console.error("Super Admin creation error:", err);

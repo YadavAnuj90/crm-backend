@@ -14,13 +14,12 @@ exports.createOrder = async (req, res) => {
 
   try {
     const options = {
-      amount: amount * 100, // Razorpay expects paise
+      amount: amount * 100, 
       currency: "INR",
       receipt: "receipt_" + Date.now()
     };
 
     const order = await razorpay.orders.create(options);
-    //console.log("Creating order with:", options);
 
 
     await Payment.create({

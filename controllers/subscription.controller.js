@@ -75,7 +75,7 @@ exports.webhook = async (req, res) => {
 
     if (event === "subscription.charged") {
  
-      console.log("Subscription charged");
+      console.warn("Subscription charged");
     }
 
     if (event === "subscription.expired") {

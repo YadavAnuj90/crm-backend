@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const constants = require("../utils/constants");
 const { logActivity } = require("../utils/activityLogger");
 const { sendEmail } = require("../utils/email");
+const { notifyUser } = require("../utils/notify");
 
 function getSlaExpiry(priority) {
   const now = new Date();
@@ -30,6 +31,12 @@ exports.createTicket = async (req, res) => {
   
     await sendEmail(
       user.email,
+      "Ticket Created",
+      `Your ticket "${ticket.title}" was created successfully.`
+    );
+
+    await notifyUser(
+      user.userId,
       "Ticket Created",
       `Your ticket "${ticket.title}" was created successfully.`
     );
@@ -71,6 +78,11 @@ exports.assignTicket = async (req, res) => {
    
     await sendEmail(
       engineer.email,
+      "New Ticket Assigned",
+      `Ticket "${ticket.title}" is assigned to you.`
+    );
+    await notifyUser(
+      engineer.userId,
       "New Ticket Assigned",
       `Ticket "${ticket.title}" is assigned to you.`
     );
@@ -134,6 +146,12 @@ exports.updateStatus = async (req, res) => {
       `Your ticket "${ticket.title}" is now "${ticketStatus}".`
     );
 
+      await notifyUser(
+      customer.userId,
+      "Ticket Status Updated",
+      `Your ticket "${ticket.title}" is now "${ticketStatus}".`
+    );
+
     await logActivity(
       ticket._id,
       req.user.userId,
@@ -174,6 +192,12 @@ exports.addFeedback = async (req, res) => {
     ticket.rating = rating;
     ticket.feedback = feedback;
     await ticket.save();
+
+    await notifyUser(
+      ticket.reportedBy,
+      "Feedback Submitted",
+      `Feedback for your ticket "${ticket.title}" has been submitted.`
+    );
 
     res.status(200).send({
       message: "Feedback submitted successfully",

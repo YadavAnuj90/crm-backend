@@ -17,17 +17,15 @@ exports.searchTickets = async (req, res) => {
       order = "desc"
     } = req.query;
 
-    // Build query object
     const query = {};
 
-    // Restrict data based on role
     if (req.userType === "CUSTOMER") {
       query.reportedBy = req.userId;
     } else if (req.userType === "ENGINEER") {
       query.assignedTo = req.userId;
     }
 
-    // Admin can filter everything
+    
     if (status) query.ticketStatus = status;
     if (priority) query.ticketPriority = priority;
     if (assignedTo) query.assignedTo = assignedTo;
@@ -44,7 +42,7 @@ exports.searchTickets = async (req, res) => {
       }
     }
 
-    // Keyword search
+
     if (keyword) {
       query.$or = [
         { title: new RegExp(keyword, "i") },
@@ -52,10 +50,10 @@ exports.searchTickets = async (req, res) => {
       ];
     }
 
-    // Pagination
+  
     const skip = (page - 1) * limit;
 
-    // Sorting
+ 
     const sortOrder = order === "asc" ? 1 : -1;
 
     const tickets = await Ticket.find(query)

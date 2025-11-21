@@ -18,6 +18,11 @@ const createSuperAdmin = require("./config/createSuperAdmin");
 const paymentRoutes = require("./routes/payment.routes");
 const superAdminDashboardRoutes = require('./routes/superadmin.dashboard.routes');
 const subscriptionRoutes = require("./routes/subscription.routes");
+const paymentHistoryRoutes = require("./routes/payment.history.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
+const notificationRoutes = require("./routes/notification.routes");
+
+
 const app = express();
 app.use(express.json());
 
@@ -36,6 +41,10 @@ app.use("/superadmin", superAdminRoutes);
 app.use("/payment", paymentRoutes);
 app.use('/superadmin/dashboard', superAdminDashboardRoutes);
 app.use("/subscription", subscriptionRoutes);
+app.use("/payment", paymentHistoryRoutes);
+app.use("/admin/analytics", analyticsRoutes);
+app.use("/notifications", notificationRoutes);
+
 
 
 

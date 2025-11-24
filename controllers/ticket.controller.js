@@ -15,6 +15,7 @@ function getSlaExpiry(priority) {
 
 exports.createTicket = async (req, res) => {
   const { title, description, priority } = req.body;
+   const files = req.files ? req.files.map(f => f.path) : [];
 
   try {
     const ticket = await Ticket.create({
@@ -23,7 +24,8 @@ exports.createTicket = async (req, res) => {
       ticketPriority: priority,
       ticketStatus: "OPEN",
       reportedBy: req.user.userId,
-      slaDueAt: getSlaExpiry(priority)
+      slaDueAt: getSlaExpiry(priority),
+      attachments: files
     });
 
     const user = await User.findOne({ userId: req.user.userId });
@@ -167,6 +169,31 @@ exports.updateStatus = async (req, res) => {
     res.status(500).send({ message: "Internal server error" });
   }
 };
+
+exports.addAttachment = async (req, res) => {
+  const ticketId = req.params.id;
+
+  try {
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).send({ message: "Ticket not found" });
+    }
+
+    const newFiles = req.files.map(file => file.path); // Cloudinary URLs
+    ticket.attachments.push(...newFiles);
+    await ticket.save();
+
+    res.status(200).send({
+      message: "Attachments uploaded successfully",
+      attachments: ticket.attachments
+    });
+
+  } catch (err) {
+    console.error("Attachment error:", err);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+};
+
 
 
 exports.addFeedback = async (req, res) => {

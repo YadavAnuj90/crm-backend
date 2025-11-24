@@ -24,6 +24,10 @@ const mongoose = require('mongoose');
             type: String,
             required: true
         },
+        attachments: {
+  type: [String], 
+  default: []
+},
          assignedTo: {
             type: String,
             default: null

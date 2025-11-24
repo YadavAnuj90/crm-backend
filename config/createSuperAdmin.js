@@ -9,7 +9,6 @@ async function createSuperAdmin() {
     });
 
     if (existing) {
-      console.warn("Super Admin already exists.");
       return;
     }
 

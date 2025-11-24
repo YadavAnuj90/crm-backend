@@ -21,10 +21,13 @@ const subscriptionRoutes = require("./routes/subscription.routes");
 const paymentHistoryRoutes = require("./routes/payment.history.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const logger = require("./config/logger");
+const requestLogger = require("./middlewares/requestLogger");
 
 
 const app = express();
 app.use(express.json());
+app.use(requestLogger);
 
 app.use('/auth', auth_route);
 app.use("/role", restRoutes);
@@ -48,11 +51,13 @@ app.use("/notifications", notificationRoutes);
 
 
 
+
 connectDB();
 createSuperAdmin();
 setInterval(checkSla, 5 * 60 * 1000);
 
 
 app.listen(process.env.PORT, () => {
-  console.warn(`Server running on port ${process.env.PORT}`);
+  logger.info(`Server started on port ${process.env.PORT}`);
 });
+

@@ -25,6 +25,9 @@ const subscriptionRoutes = require("./routes/subscription.routes");
 const paymentHistoryRoutes = require("./routes/payment.history.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +35,9 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.use("/auth", auth_route);
 app.use("/role", restRoutes);

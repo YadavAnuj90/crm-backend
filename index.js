@@ -33,6 +33,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
+const cors = require('cors');
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 if (process.env.NODE_ENV !== "production") {

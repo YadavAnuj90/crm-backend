@@ -45,15 +45,15 @@ exports.signup = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-       const {userId , password} = req.body;
+       const {email , password} = req.body;
 
-       if(!userId || !password) {
-         return res.status(400).send({ message: "userId and password are required" });
+       if(!email || !password) {
+         return res.status(400).send({ message: "email and password are required" });
        }
 
-       const user = await User.findOne({ userId});
+       const user = await User.findOne({ email});
        if(!user) {
-         return res.status(400).send({ message: "Invalid userId or password" });
+         return res.status(400).send({ message: "Invalid email or password" });
        }
        if(user.userStatus !== constants.userStatuses.approved) {
         return res.status(403).send({
@@ -62,11 +62,11 @@ exports.login = async (req, res) => {
        }
         const validPassword = await bcrypt.compare(password, user.password);
         if(!validPassword) {
-             return res.status(400).send({ message: "Invalid userId or password" });
+             return res.status(400).send({ message: "Invalid email or password" });
         }
         const tokenPayload = {
              id: user._id,
-             userId: user.userId,
+             email:user.email,
              userType: user.userType
              
         }

@@ -1,5 +1,4 @@
 
-// utils/auditLogger.js
 const Audit = require('../models/audit.model');
 
 async function logAudit(actionBy, actionType, targetType = null, targetId = null, payload = {}) {

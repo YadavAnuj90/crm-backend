@@ -5,20 +5,37 @@ const constants = require("../utils/constants");
 async function createSuperAdmin() {
   try {
     const existing = await User.findOne({
-      userType: constants.userTypes.superadmin  
+      userType: constants.userTypes.superadmin
     });
 
     if (existing) {
+      console.error("Super Admin already exists");
+      return;
+    }
+
+    const {
+      SUPERADMIN_NAME,
+      SUPERADMIN_USERID,
+      SUPERADMIN_EMAIL,
+      SUPERADMIN_PASSWORD
+    } = process.env;
+    if (
+      !SUPERADMIN_NAME ||
+      !SUPERADMIN_USERID ||
+      !SUPERADMIN_EMAIL ||
+      !SUPERADMIN_PASSWORD
+    ) {
+      console.warn("Super Admin env variables missing");
       return;
     }
 
     const superAdmin = {
-      name: "Anuj Yadav",
-      userId: "YadavAnuj11",
-      email: "anujyadav11@gmail.com",
-      userType: constants.userTypes.superadmin, 
+      name: SUPERADMIN_NAME,
+      userId: SUPERADMIN_USERID,
+      email: SUPERADMIN_EMAIL,
+      userType: constants.userTypes.superadmin,
       userStatus: constants.userStatuses.approved,
-      password: bcrypt.hashSync("superadmin@123", 10),
+      password: await bcrypt.hash(SUPERADMIN_PASSWORD, 10)
     };
 
     await User.create(superAdmin);

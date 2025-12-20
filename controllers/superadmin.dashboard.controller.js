@@ -1,13 +1,10 @@
 
-// controllers/superadmin.dashboard.controller.js
 const User = require('../models/user.model');
 const Ticket = require('../models/ticket.model');
 const Audit = require('../models/audit.model');
 const { logAudit } = require('../utils/auditLogger');
 const constants = require('../utils/constants');
-const { Parser } = require('json2csv'); // add to package.json if exporting CSV
-
-/* System summary */
+const { Parser } = require('json2csv'); 
 exports.getSystemSummary = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -35,8 +32,6 @@ exports.getSystemSummary = async (req, res) => {
     res.status(500).send({ message: 'Internal server error' });
   }
 };
-
-/* List users (with pagination, role filter, status filter, search) */
 exports.listUsers = async (req, res) => {
   try {
     const { page = 1, limit = 20, role, status, q } = req.query;
@@ -63,7 +58,6 @@ exports.listUsers = async (req, res) => {
   }
 };
 
-/* Create admin (wraps existing superadmin.controller.createAdmin if you want) */
 exports.createAdmin = async (req, res) => {
   const { name, userId, email, password } = req.body;
   if (!name || !userId || !email || !password) {
@@ -77,7 +71,6 @@ exports.createAdmin = async (req, res) => {
       name, userId, email, password, userType: constants.userTypes.admin,
       userStatus: constants.userStatuses.approved
     };
-    // We assume password hashing is handled by model pre-save or use bcrypt here:
     const bcrypt = require('bcryptjs');
     adminObj.password = bcrypt.hashSync(password, 10);
 
@@ -91,12 +84,10 @@ exports.createAdmin = async (req, res) => {
   }
 };
 
-/* Update user (name, email, status, role) */
 exports.updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const update = req.body;
-    // don't allow password change here
     delete update.password;
 
     const user = await User.findOneAndUpdate({ userId }, update, { new: true }).select('-password -__v');
@@ -110,11 +101,10 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-/* Deactivate / Activate user */
 exports.toggleUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { action } = req.body; // 'suspend' or 'activate'
+    const { action } = req.body; 
     if (!['suspend', 'activate'].includes(action)) return res.status(400).send({ message: 'Invalid action' });
 
     const user = await User.findOne({ userId });
@@ -131,7 +121,6 @@ exports.toggleUserStatus = async (req, res) => {
   }
 };
 
-/* Delete user permanently */
 exports.deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -145,7 +134,6 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-/* Recent audit logs */
 exports.getRecentAudits = async (req, res) => {
   try {
     const { limit = 20 } = req.query;
@@ -157,7 +145,6 @@ exports.getRecentAudits = async (req, res) => {
   }
 };
 
-/* Export users (JSON or CSV) */
 exports.exportUsers = async (req, res) => {
   try {
     const { format = 'json' } = req.query;

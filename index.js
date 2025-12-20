@@ -6,7 +6,6 @@ const createSuperAdmin = require("./config/createSuperAdmin");
 const logger = require("./config/logger");
 const requestLogger = require("./middlewares/requestLogger");
 const { checkSla } = require("./utils/slaChecker");
-
 const auth_route = require("./routes/auth.routes");
 const restRoutes = require("./routes/role.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -38,7 +37,7 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 if (process.env.NODE_ENV !== "production") {
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/crm/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
 app.use("/auth", auth_route);

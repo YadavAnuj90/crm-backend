@@ -23,13 +23,12 @@ exports.createTicket = async (req, res) => {
       description,
       ticketPriority: priority,
       ticketStatus: "OPEN",
-      reportedBy: req.user.userId,
+      reportedBy: req.user.id,
       slaDueAt: getSlaExpiry(priority),
       attachments: files
     });
 
-    const user = await User.findOne({ userId: req.user.userId });
-
+    const user = await User.findById(req.user.id);
   
     await sendEmail(
       user.email,
@@ -46,7 +45,7 @@ exports.createTicket = async (req, res) => {
  
     await logActivity(
       ticket._id,
-      req.user.userId,
+     req.user.id  ,
       "TICKET_CREATED",
       null,
       `Ticket created with priority ${priority}`
@@ -91,7 +90,7 @@ exports.assignTicket = async (req, res) => {
 
     await logActivity(
       ticket._id,
-      req.user.userId,
+      req.user.id,
       "TICKET_ASSIGNED",
       `Previous: ${previousAssigned}`,
       `Assigned to: ${engineerId}`
@@ -108,7 +107,7 @@ exports.assignTicket = async (req, res) => {
 
 exports.getTicketsForEngineer = async (req, res) => {
   try {
-    const tickets = await Ticket.find({ assignedTo: req.user.userId });
+    const tickets = await Ticket.find({ assignedTo: req.user.id  });
     res.status(200).send(tickets);
   } catch (err) {
     console.error("Engineer ticket error:", err);
@@ -156,7 +155,7 @@ exports.updateStatus = async (req, res) => {
 
     await logActivity(
       ticket._id,
-      req.user.userId,
+     req.user.id ,
       "STATUS_UPDATED",
       `Old: ${oldStatus}`,
       `New: ${ticketStatus}`
@@ -179,7 +178,7 @@ exports.addAttachment = async (req, res) => {
       return res.status(404).send({ message: "Ticket not found" });
     }
 
-    const newFiles = req.files.map(file => file.path); // Cloudinary URLs
+    const newFiles = req.files.map(file => file.path); 
     ticket.attachments.push(...newFiles);
     await ticket.save();
 
@@ -208,7 +207,7 @@ exports.addFeedback = async (req, res) => {
     const ticket = await Ticket.findById(ticketId);
     if (!ticket) return res.status(404).send({ message: "Ticket not found" });
 
-    if (ticket.reportedBy !== req.user.userId) {
+    if (ticket.reportedBy !== req.user.id ) {
       return res.status(403).send({ message: "Not allowed to review this ticket" });
     }
 

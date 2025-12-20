@@ -5,7 +5,6 @@ exports.getCustomerDashboard = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    // Basic counts
     const totalCreated = await Ticket.countDocuments({ reportedBy: userId });
     const openCount = await Ticket.countDocuments({
       reportedBy: userId,
@@ -20,27 +19,22 @@ exports.getCustomerDashboard = async (req, res) => {
       ticketStatus: "RESOLVED"
     });
 
-    // Tickets by Priority
     const ticketsByPriority = await Ticket.aggregate([
       { $match: { reportedBy: userId } },
       { $group: { _id: "$ticketPriority", count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
 
-    // Tickets by Status
     const ticketsByStatus = await Ticket.aggregate([
       { $match: { reportedBy: userId } },
       { $group: { _id: "$ticketStatus", count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
 
-    // Recent Tickets
     const recentTickets = await Ticket.find({ reportedBy: userId })
       .sort({ createdAt: -1 })
       .limit(10)
       .select("-__v");
-
-    // Trend for last 7 days (Created)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
@@ -62,8 +56,6 @@ exports.getCustomerDashboard = async (req, res) => {
       },
       { $sort: { _id: 1 } }
     ]);
-
-    // Trend for last 7 days (Resolved)
     const resolvedTrend = await Ticket.aggregate([
       {
         $match: {
@@ -82,8 +74,6 @@ exports.getCustomerDashboard = async (req, res) => {
       },
       { $sort: { _id: 1 } }
     ]);
-
-    // Fill missing dates
     const days = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(sevenDaysAgo);

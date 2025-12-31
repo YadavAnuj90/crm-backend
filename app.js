@@ -4,10 +4,8 @@ require("dotenv").config();
 const cors = require("cors");
 const helmet = require("helmet");
 
-// middlewares
 const requestLogger = require("./middlewares/requestLogger");
 
-// routes
 const authRoutes = require("./routes/auth.routes");
 const roleRoutes = require("./routes/role.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -25,25 +23,21 @@ const superAdminDashboardRoutes = require("./routes/superadmin.dashboard.routes"
 const analyticsRoutes = require("./routes/analytics.routes");
 const notificationRoutes = require("./routes/notification.routes");
 
-// swagger
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
 const app = express();
 
-/* -------------------- GLOBAL MIDDLEWARES -------------------- */
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
-/* -------------------- SWAGGER -------------------- */
 if (process.env.NODE_ENV !== "production") {
   app.use("/crm/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
-/* -------------------- ROUTES -------------------- */
 const apiRouter = express.Router();
 
 apiRouter.use("/auth", authRoutes);
@@ -63,11 +57,8 @@ apiRouter.use("/subscription", subscriptionRoutes);
 apiRouter.use("/admin/analytics", analyticsRoutes);
 apiRouter.use("/notifications", notificationRoutes);
 
-/* -------------------- VERSIONING -------------------- */
-app.use("/api/v1", apiRouter); // new
-app.use("/", apiRouter);       // backward compatible
-
-/* -------------------- ERROR HANDLER -------------------- */
+app.use("/api/v1", apiRouter); 
+app.use("/", apiRouter);      
 const logger = require("./config/logger");
 
 app.use((err, req, res, next) => {

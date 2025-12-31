@@ -8,12 +8,13 @@ const options = {
       version: "1.0.0",
       description: "API documentation for the CRM application",
     },
-    servers: [
-      {
-        url: "http://localhost:5000", 
-        description: "Local server",
-      },
-    ],
+servers: [
+  {
+    url: "http://localhost:5000/api/v1",
+    description: "Local server",
+  },
+],
+
     components: {
       securitySchemes: {
         bearerAuth: {

@@ -2,7 +2,12 @@ const express = require("express");
 const router = express.Router();
 
 const verifyToken = require("../middlewares/authJwt");
-const { isAdmin, isEngineer, isCustomer } = require("../middlewares/roleMiddleware");
+const {
+  isAdmin,
+  isEngineer,
+  isCustomer,
+  isAdminOrEngineer
+} = require("../middlewares/roleMiddleware");
 const { upload } = require("../config/cloudinary");
 
 const ticketController = require("../controllers/ticket.controller");
@@ -140,7 +145,12 @@ router.get(
  *       200:
  *         description: Ticket status updated
  */
-router.put("/:id/status", verifyToken, ticketController.updateStatus);
+router.put(
+  "/:id/status",
+  verifyToken,
+  isAdminOrEngineer,
+  ticketController.updateStatus
+);
 
 /**
  * @swagger

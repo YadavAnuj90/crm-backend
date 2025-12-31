@@ -13,6 +13,18 @@ exports.isAdmin = (req, res, next) => {
   }
   next();
 };
+exports.isAdminOrEngineer = (req, res, next) => {
+  if (
+    req.userType === constants.userTypes.admin ||
+    req.userType === constants.userTypes.engineer
+  ) {
+    return next();
+  }
+
+  return res.status(403).send({
+    message: "Only Admin or Engineer can access this"
+  });
+};
 
 
 exports.isEngineer = (req, res, next) => {

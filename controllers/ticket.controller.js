@@ -117,57 +117,83 @@ exports.getTicketsForEngineer = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
   const ticketId = req.params.id;
-  const { ticketStatus } = req.body;
+  const ticketStatus = req.body?.ticketStatus;
+
+  // ✅ Validate body
+  if (!ticketStatus) {
+    return res.status(400).send({
+      message: "ticketStatus is required"
+    });
+  }
 
   const allowedStatuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
   if (!allowedStatuses.includes(ticketStatus)) {
-    return res.status(400).send({ message: "Invalid status" });
+    return res.status(400).send({
+      message: "Invalid status"
+    });
   }
 
   try {
     const ticket = await Ticket.findById(ticketId);
-    if (!ticket) return res.status(404).send({ message: "Ticket not found" });
+    if (!ticket) {
+      return res.status(404).send({ message: "Ticket not found" });
+    }
 
     const oldStatus = ticket.ticketStatus;
 
-    
-    if (ticketStatus === "RESOLVED") ticket.isOverdue = false;
-    else if (["OPEN", "IN_PROGRESS"].includes(ticketStatus)) {
-      if (ticket.slaDueAt < new Date()) ticket.isOverdue = true;
+    // SLA logic
+    if (ticketStatus === "RESOLVED") {
+      ticket.isOverdue = false;
+    } else if (["OPEN", "IN_PROGRESS"].includes(ticketStatus)) {
+      if (ticket.slaDueAt && ticket.slaDueAt < new Date()) {
+        ticket.isOverdue = true;
+      }
     }
 
     ticket.ticketStatus = ticketStatus;
     await ticket.save();
 
+    // ✅ Correct user lookup
+    const customer = await User.findById(ticket.reportedBy);
 
-    const customer = await User.findOne({ userId: ticket.reportedBy });
-    await sendEmail(
-      customer.email,
-      "Ticket Status Updated",
-      `Your ticket "${ticket.title}" is now "${ticketStatus}".`
-    );
+    // 🔥 Non-blocking side effects
+    if (customer?.email) {
+      sendEmail(
+        customer.email,
+        "Ticket Status Updated",
+        `Your ticket "${ticket.title}" is now "${ticketStatus}".`
+      ).catch(err => console.error("Email failed:", err.message));
+    }
 
-      await notifyUser(
-      customer.userId,
-      "Ticket Status Updated",
-      `Your ticket "${ticket.title}" is now "${ticketStatus}".`
-    );
+    if (customer?.userId) {
+      notifyUser(
+        customer.userId,
+        "Ticket Status Updated",
+        `Your ticket "${ticket.title}" is now "${ticketStatus}".`
+      ).catch(err => console.error("Notify failed:", err.message));
+    }
 
     await logActivity(
       ticket._id,
-     req.user.id ,
+      req.user.id,
       "STATUS_UPDATED",
       `Old: ${oldStatus}`,
       `New: ${ticketStatus}`
     );
 
-    res.status(200).send({ message: "Ticket status updated", ticket });
+    return res.status(200).send({
+      message: "Ticket status updated successfully",
+      ticket
+    });
 
   } catch (err) {
     console.error("Status update error:", err);
-    res.status(500).send({ message: "Internal server error" });
+    return res.status(500).send({
+      message: "Internal server error"
+    });
   }
 };
+
 
 exports.addAttachment = async (req, res) => {
   const ticketId = req.params.id;

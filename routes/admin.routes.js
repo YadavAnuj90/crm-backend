@@ -42,6 +42,18 @@ router.get("/users", verifyToken, isAdmin, adminController.getAllUsers);
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userStatus
+ *             properties:
+ *               userStatus:
+ *                 type: string
+ *                 example: APPROVED
  *     responses:
  *       200:
  *         description: User status updated successfully

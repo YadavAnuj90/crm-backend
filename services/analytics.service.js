@@ -1,140 +1,159 @@
-
 const Payment = require("../models/payment.model");
 const Subscription = require("../models/subscription.model");
 const Ticket = require("../models/ticket.model");
 
-function monthFormat(dateObj) {
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}`;
+const PAYMENT_STATUS = {
+  SUCCESS: "SUCCESS",
+};
+
+const TICKET_STATUS = {
+  RESOLVED: "RESOLVED",
+};
+
+function getYearRange(year) {
+  return {
+    start: new Date(`${year}-01-01T00:00:00Z`),
+    end: new Date(`${Number(year) + 1}-01-01T00:00:00Z`),
+  };
 }
 
-async function getMonthlyRevenue(year) {
-  const start = new Date(`${year}-01-01T00:00:00Z`);
-  const end = new Date(`${parseInt(year) + 1}-01-01T00:00:00Z`);
+function getMonths(year) {
+  return Array.from({ length: 12 }, (_, i) =>
+    `${year}-${String(i + 1).padStart(2, "0")}`
+  );
+}
 
-  const pipeline = [
+
+async function getMonthlyRevenue(year) {
+  const { start, end } = getYearRange(year);
+
+  const result = await Payment.aggregate([
     {
       $match: {
-        status: "SUCCESS",
-        createdAt: { $gte: start, $lt: end }
-      }
+        status: PAYMENT_STATUS.SUCCESS,
+        createdAt: { $gte: start, $lt: end },
+      },
     },
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
         totalAmount: { $sum: "$amount" },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
-  ];
+    { $sort: { _id: 1 } },
+  ]);
 
-  const result = await Payment.aggregate(pipeline);
-  const months = [];
-  for (let m = 1; m <= 12; m++) {
-    const mm = String(m).padStart(2, "0");
-    months.push(`${year}-${mm}`);
-  }
   const map = new Map(result.map(r => [r._id, r]));
-  return months.map(month => {
-    const r = map.get(month);
-    return {
-      month,
-      totalAmount: r ? r.totalAmount : 0,
-      count: r ? r.count : 0
-    };
-  });
+  return getMonths(year).map(month => ({
+    month,
+    totalAmount: map.get(month)?.totalAmount || 0,
+    count: map.get(month)?.count || 0,
+  }));
 }
 
 async function getYearlyRevenue(startYear, endYear) {
-  const pipeline = [
+  const result = await Payment.aggregate([
     {
       $match: {
-        status: "SUCCESS",
+        status: PAYMENT_STATUS.SUCCESS,
         createdAt: {
           $gte: new Date(`${startYear}-01-01T00:00:00Z`),
-          $lt: new Date(`${endYear + 1}-01-01T00:00:00Z`)
-        }
-      }
+          $lt: new Date(`${endYear + 1}-01-01T00:00:00Z`),
+        },
+      },
     },
     {
       $group: {
         _id: { $dateToString: { format: "%Y", date: "$createdAt" } },
         totalAmount: { $sum: "$amount" },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
-  ];
+    { $sort: { _id: 1 } },
+  ]);
 
-  const result = await Payment.aggregate(pipeline);
   const map = new Map(result.map(r => [r._id, r]));
-  const years = [];
-  for (let y = startYear; y <= endYear; y++) years.push(String(y));
-  return years.map(year => {
-    const r = map.get(year);
-    return { year, totalAmount: r ? r.totalAmount : 0, count: r ? r.count : 0 };
+  return Array.from({ length: endYear - startYear + 1 }, (_, i) => {
+    const year = String(startYear + i);
+    return {
+      year,
+      totalAmount: map.get(year)?.totalAmount || 0,
+      count: map.get(year)?.count || 0,
+    };
   });
 }
 
 
 async function getTicketsMonthly(year) {
-  const start = new Date(`${year}-01-01T00:00:00Z`);
-  const end = new Date(`${parseInt(year) + 1}-01-01T00:00:00Z`);
-
-  const createdPipe = [
-    { $match: { createdAt: { $gte: start, $lt: end } } },
-    { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, count: { $sum: 1 } } },
-    { $sort: { _id: 1 } }
-  ];
-  const resolvedPipe = [
-    { $match: { updatedAt: { $gte: start, $lt: end }, ticketStatus: "RESOLVED" } },
-    { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$updatedAt" } }, count: { $sum: 1 } } },
-    { $sort: { _id: 1 } }
-  ];
+  const { start, end } = getYearRange(year);
 
   const [created, resolved] = await Promise.all([
-    Ticket.aggregate(createdPipe),
-    Ticket.aggregate(resolvedPipe)
+    Ticket.aggregate([
+      { $match: { createdAt: { $gte: start, $lt: end } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    Ticket.aggregate([
+      {
+        $match: {
+          updatedAt: { $gte: start, $lt: end },
+          ticketStatus: TICKET_STATUS.RESOLVED,
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$updatedAt" } },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
   ]);
 
-  const months = [];
-  for (let m = 1; m <= 12; m++) months.push(`${year}-${String(m).padStart(2, "0")}`);
+  const createdMap = new Map(created.map(r => [r._id, r.count]));
+  const resolvedMap = new Map(resolved.map(r => [r._id, r.count]));
 
-  const cMap = new Map(created.map(r => [r._id, r.count]));
-  const rMap = new Map(resolved.map(r => [r._id, r.count]));
-
-  return months.map(month => ({
+  return getMonths(year).map(month => ({
     month,
-    created: cMap.get(month) || 0,
-    resolved: rMap.get(month) || 0
+    created: createdMap.get(month) || 0,
+    resolved: resolvedMap.get(month) || 0,
   }));
 }
 
 
 async function getEngineerWorkload(startDate, endDate) {
-  const pipeline = [
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start) || isNaN(end)) {
+    throw new Error("Invalid date range");
+  }
+
+  return Ticket.aggregate([
     {
       $match: {
         assignedTo: { $ne: null },
-        createdAt: { $gte: new Date(startDate), $lt: new Date(endDate) }
-      }
+        createdAt: { $gte: start, $lt: end },
+      },
     },
     {
       $group: {
         _id: "$assignedTo",
-        assignedCount: { $sum: 1 }
-      }
+        assignedCount: { $sum: 1 },
+      },
     },
-    { $sort: { assignedCount: -1 } }
-  ];
-  return await Ticket.aggregate(pipeline);
+    { $sort: { assignedCount: -1 } },
+  ]);
 }
 
 module.exports = {
   getMonthlyRevenue,
   getYearlyRevenue,
   getTicketsMonthly,
-  getEngineerWorkload
+  getEngineerWorkload,
 };
+  

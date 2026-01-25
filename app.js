@@ -5,7 +5,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 
 const requestLogger = require("./middlewares/requestLogger");
-
+const logger = require("./config/logger");
 const authRoutes = require("./routes/auth.routes");
 const roleRoutes = require("./routes/role.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -35,31 +35,28 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 if (process.env.NODE_ENV !== "production") {
-  app.use("/crm/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
 const apiRouter = express.Router();
-
 apiRouter.use("/auth", authRoutes);
 apiRouter.use("/role", roleRoutes);
 apiRouter.use("/sla", slaRoutes);
-apiRouter.use("/admin", adminRoutes);
 apiRouter.use("/tickets", ticketsRoutes);
-apiRouter.use("/admin", adminDashboardRoutes);
-apiRouter.use("/engineer", engineerDashboardRoutes);
-apiRouter.use("/customer", customerDashboardRoutes);
 apiRouter.use("/export", exportRoutes);
+apiRouter.use("/notifications", notificationRoutes);
+apiRouter.use("/admin", adminRoutes);
+apiRouter.use("/admin/dashboard", adminDashboardRoutes);
+apiRouter.use("/admin/analytics", analyticsRoutes);
+apiRouter.use("/engineer/dashboard", engineerDashboardRoutes);
+apiRouter.use("/customer/dashboard", customerDashboardRoutes);
 apiRouter.use("/superadmin", superAdminRoutes);
 apiRouter.use("/superadmin/dashboard", superAdminDashboardRoutes);
 apiRouter.use("/payment", paymentRoutes);
-apiRouter.use("/payment", paymentHistoryRoutes);
+apiRouter.use("/payment/history", paymentHistoryRoutes);
 apiRouter.use("/subscription", subscriptionRoutes);
-apiRouter.use("/admin/analytics", analyticsRoutes);
-apiRouter.use("/notifications", notificationRoutes);
+app.use("/api/v1", apiRouter);
 
-app.use("/api/v1", apiRouter); 
-app.use("/", apiRouter);      
-const logger = require("./config/logger");
 
 app.use((err, req, res, next) => {
   logger.error(err.stack || err.message);

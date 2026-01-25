@@ -1,21 +1,21 @@
-
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
 
-cloudinary.config({
-  // cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  // api_key: process.env.CLOUDINARY_API_KEY,
-  // api_secret: process.env.CLOUDINARY_API_SECRET
-  cloudinary: process.env.CLOUDINARY_URL
+const multerStorageCloudinary = require("multer-storage-cloudinary");
 
+const CloudinaryStorage =
+  multerStorageCloudinary.CloudinaryStorage ||
+  multerStorageCloudinary.default ||
+  multerStorageCloudinary;
+cloudinary.config({
+  secure: true,
 });
 
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "crm-app/ticket-attachments",
-    allowed_formats: ["jpg", "png", "jpeg", "pdf"]
+    resource_type: "auto",
   },
 });
 

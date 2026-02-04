@@ -25,9 +25,16 @@ const notificationRoutes = require("./routes/notification.routes");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
+const {
+  apiLimiter,
+  authLimiter,
+  paymentLimiter,
+  paymentHistoryLimiter,
+} = require("./middlewares/rateLimiter");
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
@@ -39,7 +46,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const apiRouter = express.Router();
-apiRouter.use("/auth", authRoutes);
+apiRouter.use("/auth", authLimiter, authRoutes);
 apiRouter.use("/role", roleRoutes);
 apiRouter.use("/sla", slaRoutes);
 apiRouter.use("/tickets", ticketsRoutes);
@@ -52,10 +59,10 @@ apiRouter.use("/engineer/dashboard", engineerDashboardRoutes);
 apiRouter.use("/customer/dashboard", customerDashboardRoutes);
 apiRouter.use("/superadmin", superAdminRoutes);
 apiRouter.use("/superadmin/dashboard", superAdminDashboardRoutes);
-apiRouter.use("/payment", paymentRoutes);
-apiRouter.use("/payment/history", paymentHistoryRoutes);
+apiRouter.use("/payment", paymentLimiter, paymentRoutes);
+apiRouter.use("/payment/history", paymentHistoryLimiter, paymentHistoryRoutes);
 apiRouter.use("/subscription", subscriptionRoutes);
-app.use("/api/v1", apiRouter);
+app.use("/api/v1", apiLimiter, apiRouter);
 
 
 app.use((err, req, res, next) => {

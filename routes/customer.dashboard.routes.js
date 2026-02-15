@@ -8,8 +8,8 @@ const { getCustomerDashboard } = require("../controllers/customer.dashboard.cont
 /**
  * @swagger
  * tags:
- *   name: Customer Dashboard
- *   description: Customer dashboard APIs
+ *   name: Customer
+ *   description: Customer related APIs
  */
 
 /**
@@ -17,7 +17,7 @@ const { getCustomerDashboard } = require("../controllers/customer.dashboard.cont
  * /customer/dashboard:
  *   get:
  *     summary: Get customer dashboard data
- *     tags: [Customer Dashboard]
+ *     tags: [Customer]
  *     security:
  *       - bearerAuth: []
  *     responses:

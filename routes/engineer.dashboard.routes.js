@@ -26,6 +26,8 @@ const { getEngineerDashboard } = require("../controllers/engineer.dashboard.cont
  *       403:
  *         description: Forbidden – Engineer access only
  */
+
+// ✅ Only dashboard here (no duplicate path)
 router.get("/dashboard", verifyToken, isEngineer, getEngineerDashboard);
 
 module.exports = router;

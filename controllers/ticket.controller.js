@@ -58,6 +58,38 @@ exports.createTicket = async (req, res) => {
     res.status(500).send({ message: "Internal server error" });
   }
 };
+exports.getAllTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find().sort({ createdAt: -1 });
+
+    res.status(200).send({
+      count: tickets.length,
+      tickets
+    });
+
+  } catch (err) {
+    console.error("Get all tickets error:", err);
+    res.status(500).send({ message: "Internal server error" });
+  }
+};
+
+exports.getMyTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find({
+      reportedBy: req.user.id
+    }).sort({ createdAt: -1 });
+
+    res.status(200).send({
+      count: tickets.length,
+      tickets
+    });
+
+  } catch (err) {
+    console.error("Get my tickets error:", err);
+    res.status(500).send({ message: "Internal server error" });
+  }
+};
+
 
 exports.assignTicket = async (req, res) => {
   const ticketId = req.params.id;

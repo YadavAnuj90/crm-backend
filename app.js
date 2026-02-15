@@ -6,6 +6,8 @@ const helmet = require("helmet");
 
 const requestLogger = require("./middlewares/requestLogger");
 const logger = require("./config/logger");
+
+// ROUTES
 const authRoutes = require("./routes/auth.routes");
 const roleRoutes = require("./routes/role.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -28,36 +30,45 @@ const swaggerSpec = require("./config/swagger");
 
 const app = express();
 
+// MIDDLEWARE
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
+// Swagger (non-production)
 if (process.env.NODE_ENV !== "production") {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
+// API Router
 const apiRouter = express.Router();
+
+// Mount routes properly
 apiRouter.use("/auth", authRoutes);
 apiRouter.use("/role", roleRoutes);
 apiRouter.use("/sla", slaRoutes);
 apiRouter.use("/tickets", ticketsRoutes);
 apiRouter.use("/export", exportRoutes);
 apiRouter.use("/notifications", notificationRoutes);
+
 apiRouter.use("/admin", adminRoutes);
 apiRouter.use("/admin/dashboard", adminDashboardRoutes);
 apiRouter.use("/admin/analytics", analyticsRoutes);
-apiRouter.use("/engineer/dashboard", engineerDashboardRoutes);
-apiRouter.use("/customer/dashboard", customerDashboardRoutes);
+
+apiRouter.use("/engineer", engineerDashboardRoutes);
+apiRouter.use("/customer", customerDashboardRoutes);
+
 apiRouter.use("/superadmin", superAdminRoutes);
 apiRouter.use("/superadmin/dashboard", superAdminDashboardRoutes);
+
 apiRouter.use("/payment", paymentRoutes);
 apiRouter.use("/payment/history", paymentHistoryRoutes);
 apiRouter.use("/subscription", subscriptionRoutes);
+
+
 app.use("/api/v1", apiRouter);
-
-
 app.use((err, req, res, next) => {
   logger.error(err.stack || err.message);
   res.status(err.status || 500).json({

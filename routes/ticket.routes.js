@@ -8,11 +8,11 @@ const {
   isCustomer,
   isAdminOrEngineer
 } = require("../middlewares/roleMiddleware");
+
 const { upload } = require("../config/cloudinary");
 
 const ticketController = require("../controllers/ticket.controller");
 const { searchTickets } = require("../controllers/ticket.search.controller");
-const { addFeedback } = require("../controllers/ticket.controller");
 
 /**
  * @swagger
@@ -24,30 +24,43 @@ const { addFeedback } = require("../controllers/ticket.controller");
 /**
  * @swagger
  * /tickets:
+ *   get:
+ *     summary: Get all tickets (Admin/Engineer)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/",
+  verifyToken,
+  isAdminOrEngineer,
+  ticketController.getAllTickets
+);
+
+/**
+ * @swagger
+ * /tickets/my:
+ *   get:
+ *     summary: Get logged-in customer's tickets
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/my",
+  verifyToken,
+  isCustomer,
+  ticketController.getMyTickets
+);
+
+/**
+ * @swagger
+ * /tickets:
  *   post:
  *     summary: Create a ticket (Customer only)
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               attachments:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       201:
- *         description: Ticket created successfully
  */
 router.post(
   "/",
@@ -65,25 +78,6 @@ router.post(
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               attachments:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       200:
- *         description: Attachments uploaded successfully
  */
 router.post(
   "/:id/attachments",
@@ -100,15 +94,13 @@ router.post(
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     responses:
- *       200:
- *         description: Ticket assigned successfully
  */
-router.put("/:id/assign", verifyToken, isAdmin, ticketController.assignTicket);
+router.put(
+  "/:id/assign",
+  verifyToken,
+  isAdmin,
+  ticketController.assignTicket
+);
 
 /**
  * @swagger
@@ -118,9 +110,6 @@ router.put("/:id/assign", verifyToken, isAdmin, ticketController.assignTicket);
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Engineer tickets fetched successfully
  */
 router.get(
   "/engineer/me",
@@ -137,13 +126,6 @@ router.get(
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     responses:
- *       200:
- *         description: Ticket status updated
  */
 router.put(
   "/:id/status",
@@ -160,33 +142,13 @@ router.put(
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - rating
- *             properties:
- *               rating:
- *                 type: number
- *                 example: 5
- *               comment:
- *                 type: string
- *                 example: Issue resolved successfully
- *     responses:
- *       200:
- *         description: Feedback added successfully
  */
-
-router.post("/:id/feedback", verifyToken, isCustomer, addFeedback);
+router.post(
+  "/:id/feedback",
+  verifyToken,
+  isCustomer,
+  ticketController.addFeedback
+);
 
 /**
  * @swagger
@@ -196,15 +158,11 @@ router.post("/:id/feedback", verifyToken, isCustomer, addFeedback);
  *     tags: [Tickets]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Search results fetched
  */
-router.get("/search", verifyToken, searchTickets);
+router.get(
+  "/search",
+  verifyToken,
+  searchTickets
+);
 
 module.exports = router;

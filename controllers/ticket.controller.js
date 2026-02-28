@@ -293,3 +293,44 @@ exports.addFeedback = async (req, res) => {
     res.status(500).send({ message: "Internal server error" });
   }
 };
+
+// Bulk Operations
+exports.bulkAssignTickets = async (req, res) => {
+  const { ticketIds, engineerId } = req.body;
+  if (!ticketIds?.length || !engineerId) {
+    return res.status(400).json({ message: 'ticketIds and engineerId are required' });
+  }
+  try {
+    const User = require('../models/user.model');
+    const engineer = await User.findOne({ userId: engineerId });
+    if (!engineer) return res.status(404).json({ message: 'Engineer not found' });
+
+    const result = await Ticket.updateMany(
+      { _id: { $in: ticketIds } },
+      { $set: { assignedTo: engineerId, ticketStatus: 'IN_PROGRESS' } }
+    );
+    res.status(200).json({ message: `${result.modifiedCount} tickets assigned`, modifiedCount: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.bulkUpdateStatus = async (req, res) => {
+  const { ticketIds, ticketStatus } = req.body;
+  const allowedStatuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
+  if (!ticketIds?.length || !ticketStatus) {
+    return res.status(400).json({ message: 'ticketIds and ticketStatus are required' });
+  }
+  if (!allowedStatuses.includes(ticketStatus)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
+  try {
+    const result = await Ticket.updateMany(
+      { _id: { $in: ticketIds } },
+      { $set: { ticketStatus } }
+    );
+    res.status(200).json({ message: `${result.modifiedCount} tickets updated`, modifiedCount: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

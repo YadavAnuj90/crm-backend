@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "jest --setupFiles ./tests/setup.js --forceExit --detectOpenHandles",
+    "lint": "node --check app.js && node --check server.js"
   },
   "author": "",
   "license": "ISC",
@@ -34,9 +36,16 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.18.3",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "node-cron": "^3.0.3",
+    "compression": "^1.7.4",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.3",
+    "@sentry/node": "^8.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
   }
 }

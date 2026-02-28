@@ -3,6 +3,7 @@ const router = express.Router();
 
 const verifyToken = require("../middlewares/authJwt");
 const { isSuperAdmin, isAdmin } = require("../middlewares/roleMiddleware");
+const { cacheMiddleware } = require("../middlewares/cache");
 const analyticsController = require("../controllers/analytics.controller");
 
 /**
@@ -26,7 +27,7 @@ const analyticsController = require("../controllers/analytics.controller");
  *       403:
  *         description: Forbidden – Admin only
  */
-router.get("/revenue", verifyToken, isAdmin, analyticsController.revenueMonthly);
+router.get("/revenue", verifyToken, isAdmin, cacheMiddleware(60), analyticsController.revenueMonthly);
 
 /**
  * @swagger
@@ -44,6 +45,7 @@ router.get(
   "/revenue/yearly",
   verifyToken,
   isAdmin,
+  cacheMiddleware(120),
   analyticsController.revenueYearly
 );
 
@@ -59,7 +61,7 @@ router.get(
  *       200:
  *         description: Ticket analytics retrieved successfully
  */
-router.get("/tickets", verifyToken, isAdmin, analyticsController.ticketsMonthly);
+router.get("/tickets", verifyToken, isAdmin, cacheMiddleware(60), analyticsController.ticketsMonthly);
 
 /**
  * @swagger
@@ -77,6 +79,7 @@ router.get(
   "/engineer-workload",
   verifyToken,
   isAdmin,
+  cacheMiddleware(90),
   analyticsController.engineerWorkload
 );
 

@@ -67,4 +67,8 @@ router.put(
   adminController.updateUserStatus
 );
 
+// Soft delete & restore users (Fix #6)
+router.delete("/users/:userId", verifyToken, isAdmin, adminController.softDeleteUser);
+router.patch("/users/:userId/restore", verifyToken, isAdmin, adminController.restoreUser);
+
 module.exports = router;

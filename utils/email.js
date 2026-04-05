@@ -1,27 +1,39 @@
+/**
+ * utils/email.js
+ *
+ * Public API for sending emails throughout the app.
+ * All sends go through the BullMQ email queue — the caller is NEVER blocked.
+ * The actual SMTP send happens in queues/workers/email.worker.js
+ */
 
-const nodemailer = require("nodemailer");
+const logger = require('../config/logger');
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+let _queueEmail;
+
+function getQueueEmail() {
+  if (!_queueEmail) {
+    // Lazy-require to avoid circular dependency issues at startup
+    _queueEmail = require('../queues/index').queueEmail;
   }
-});
+  return _queueEmail;
+}
 
+/**
+ * Enqueue an email for async delivery.
+ * Returns immediately — does NOT await SMTP delivery.
+ *
+ * @param {string} to      - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} text    - Plain-text body
+ * @param {string} [html]  - Optional HTML body
+ */
 async function sendEmail(to, subject, text, html = null) {
   try {
-    await transporter.sendMail({
-      from: `"CRM System" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text,
-      html: html || text
-    });
-
-    console.warn("📧 Email sent to:", to);
+    const queueEmail = getQueueEmail();
+    await queueEmail(to, subject, text, html);
   } catch (err) {
-    console.error("Email error:", err);
+    // Never throw — email is always best-effort from the caller's perspective
+    logger.error(`Failed to enqueue email to ${to}: ${err.message}`);
   }
 }
 

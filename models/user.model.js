@@ -35,7 +35,14 @@ const userSchema = new mongoose.Schema({
   twoFactorSecret: { type: String, default: null },
   twoFactorEnabled: { type: Boolean, default: false },
   // Multi-tenancy
-  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null }
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null },
+
+  // ── Soft Delete ─────────────────────────────────────────────────────────────
+  // Deleted users cannot log in but their data and ticket history are preserved.
+  // GDPR/compliance: set permanentDeleteAt for scheduled erasure (e.g. 90 days).
+  isDeleted: { type: Boolean, default: false, index: true },
+  deletedAt: { type: Date, default: null },
+  permanentDeleteAt: { type: Date, default: null, index: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

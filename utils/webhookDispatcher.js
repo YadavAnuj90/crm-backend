@@ -1,52 +1,49 @@
-const crypto = require('crypto');
-const https = require('https');
-const http = require('http');
+/**
+ * utils/webhookDispatcher.js
+ *
+ * Replaces the old fire-and-forget HTTP dispatcher.
+ * All webhook deliveries are now queued via BullMQ with:
+ *  - Exponential backoff retries (up to 7 attempts)
+ *  - Dead-letter flagging in the Webhook model after exhausting retries
+ *  - Actual HTTP dispatch handled in queues/workers/webhook.worker.js
+ */
+
 const Webhook = require('../models/webhook.model');
 const logger = require('../config/logger');
 
-async function dispatchWebhook(event, payload) {
+let _queueWebhook;
+
+function getQueue() {
+  if (!_queueWebhook) {
+    _queueWebhook = require('../queues/index').queueWebhook;
+  }
+  return _queueWebhook;
+}
+
+/**
+ * Enqueue webhook delivery for all active webhooks subscribed to `event`.
+ * Returns immediately — delivery happens asynchronously in the worker.
+ *
+ * @param {string} event   - Event name e.g. 'ticket.overdue'
+ * @param {object} payload - Event payload
+ * @param {ObjectId} [orgId] - Optional: scope to a specific organization
+ */
+async function dispatchWebhook(event, payload, orgId = null) {
   try {
-    const webhooks = await Webhook.find({ events: event, isActive: true });
+    const filter = { events: event, isActive: true };
+    if (orgId) filter.organizationId = orgId;
+
+    const webhooks = await Webhook.find(filter).lean();
+
     for (const wh of webhooks) {
-      const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
-      const signature = crypto
-        .createHmac('sha256', wh.secret)
-        .update(body)
-        .digest('hex');
+      await getQueue()(wh._id, wh.url, wh.secret, event, payload);
+    }
 
-      const url = new URL(wh.url);
-      const options = {
-        hostname: url.hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname + url.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          'X-CRM-Signature': `sha256=${signature}`,
-          'X-CRM-Event': event
-        }
-      };
-
-      const requester = url.protocol === 'https:' ? https : http;
-      const req = requester.request(options, (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          Webhook.findByIdAndUpdate(wh._id, { lastTriggeredAt: new Date(), failureCount: 0 }).exec();
-        } else {
-          Webhook.findByIdAndUpdate(wh._id, { $inc: { failureCount: 1 } }).exec();
-        }
-      });
-
-      req.on('error', (err) => {
-        logger.error(`Webhook dispatch error for ${wh.url}: ${err.message}`);
-        Webhook.findByIdAndUpdate(wh._id, { $inc: { failureCount: 1 } }).exec();
-      });
-
-      req.write(body);
-      req.end();
+    if (webhooks.length > 0) {
+      logger.info(`Queued ${webhooks.length} webhook(s) for event: ${event}`);
     }
   } catch (err) {
-    logger.error('dispatchWebhook error: ' + err.message);
+    logger.error('dispatchWebhook enqueue error: ' + err.message);
   }
 }
 

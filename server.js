@@ -16,7 +16,7 @@ async function startServer() {
   try {
     await connectDB();
     await createSuperAdmin();
-    startSlaScheduler();
+    await startSlaScheduler(); // Now async — starts BullMQ workers + registers repeatable jobs
 
     server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);

@@ -3,6 +3,8 @@ const router = express.Router();
 
 const verifyToken = require("../middlewares/authJwt");
 const controller = require("../controllers/subscription.controller");
+const { validate } = require("../middlewares/validate");
+const { CreatePlanSchema, CreateSubscriptionSchema } = require("../validators/payment.validator");
 
 /**
  * @swagger
@@ -43,7 +45,7 @@ const controller = require("../controllers/subscription.controller");
  *       201:
  *         description: Subscription plan created successfully
  */
-router.post("/create-plan", verifyToken, controller.createPlan);
+router.post("/create-plan", verifyToken, validate(CreatePlanSchema), controller.createPlan);
 
 /**
  * @swagger
@@ -69,7 +71,7 @@ router.post("/create-plan", verifyToken, controller.createPlan);
  *       200:
  *         description: Subscription created successfully
  */
-router.post("/create-subscription", verifyToken, controller.createSubscription);
+router.post("/create-subscription", verifyToken, validate(CreateSubscriptionSchema), controller.createSubscription);
 
 /**
  * @swagger

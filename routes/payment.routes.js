@@ -3,6 +3,8 @@ const router = express.Router();
 
 const verifyToken = require("../middlewares/authJwt");
 const controller = require("../controllers/payment.controller");
+const { validate } = require("../middlewares/validate");
+const { CreateOrderSchema, VerifyPaymentSchema } = require("../validators/payment.validator");
 
 /**
  * @swagger
@@ -35,7 +37,7 @@ const controller = require("../controllers/payment.controller");
  *       201:
  *         description: Payment order created successfully
  */
-router.post("/create-order", verifyToken, controller.createOrder);
+router.post("/create-order", verifyToken, validate(CreateOrderSchema), controller.createOrder);
 
 /**
  * @swagger
@@ -55,6 +57,6 @@ router.post("/create-order", verifyToken, controller.createOrder);
  *       400:
  *         description: Payment verification failed
  */
-router.post("/verify", controller.verifyPayment);
+router.post("/verify", validate(VerifyPaymentSchema), controller.verifyPayment);
 
 module.exports = router;

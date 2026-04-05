@@ -1,95 +1,113 @@
-const Ticket = require("../models/ticket.model");
-const User = require("../models/user.model");
-const constants = require("../utils/constants");
-const { logActivity } = require("../utils/activityLogger");
-const { sendEmail } = require("../utils/email");
-const { notifyUser } = require("../utils/notify");
+const Ticket = require('../models/ticket.model');
+const User = require('../models/user.model');
+const constants = require('../utils/constants');
+const { logActivity } = require('../utils/activityLogger');
+const { sendEmail } = require('../utils/email');
+const { notifyUser } = require('../utils/notify');
+const { buildCursorQuery, buildCursorResponse } = require('../middlewares/paginate');
 
 function getSlaExpiry(priority) {
   const now = new Date();
-  if (priority === "HIGH") now.setHours(now.getHours() + 4);
-  else if (priority === "MEDIUM") now.setHours(now.getHours() + 24);
-  else now.setHours(now.getHours() + 48);
+  if (priority === 'CRITICAL') now.setHours(now.getHours() + 1);
+  else if (priority === 'HIGH') now.setHours(now.getHours() + 4);
+  else if (priority === 'MEDIUM') now.setHours(now.getHours() + 24);
+  else now.setHours(now.getHours() + 48); // LOW
   return now;
 }
 
+// ── Create ────────────────────────────────────────────────────────────────────
+
 exports.createTicket = async (req, res) => {
-  const { title, description, priority } = req.body;
-   const files = req.files ? req.files.map(f => f.path) : [];
+  const { title, description, priority, category, tags } = req.body;
+  const files = req.files ? req.files.map((f) => f.path) : [];
 
   try {
     const ticket = await Ticket.create({
       title,
       description,
       ticketPriority: priority,
-      ticketStatus: "OPEN",
+      ticketStatus: 'OPEN',
+      category,
+      tags,
       reportedBy: req.user.id,
       slaDueAt: getSlaExpiry(priority),
-      attachments: files
+      attachments: files,
     });
 
     const user = await User.findById(req.user.id);
-  
-    await sendEmail(
-      user.email,
-      "Ticket Created",
-      `Your ticket "${ticket.title}" was created successfully.`
-    );
 
-    await notifyUser(
-      user.userId,
-      "Ticket Created",
-      `Your ticket "${ticket.title}" was created successfully.`
-    );
+    // Non-blocking — all go into BullMQ queues
+    sendEmail(user.email, 'Ticket Created', `Your ticket "${ticket.title}" was created successfully.`);
+    notifyUser(user.userId, 'Ticket Created', `Your ticket "${ticket.title}" was created successfully.`);
+    logActivity(ticket._id, req.user.id, 'TICKET_CREATED', null, `Ticket created with priority ${priority}`);
 
- 
-    await logActivity(
-      ticket._id,
-     req.user.id  ,
-      "TICKET_CREATED",
-      null,
-      `Ticket created with priority ${priority}`
-    );
-
-    res.status(201).send({ ticket, message: "Ticket created successfully" });
-
+    res.status(201).json({ success: true, message: 'Ticket created successfully', ticket });
   } catch (err) {
-    console.error("Error creating ticket:", err);
-    res.status(500).send({ message: "Internal server error" });
+    console.error('Error creating ticket:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// ── List (cursor-paginated) ───────────────────────────────────────────────────
+
 exports.getAllTickets = async (req, res) => {
   try {
-    const tickets = await Ticket.find().sort({ createdAt: -1 });
+    const { filter, limit } = buildCursorQuery(req);
 
-    res.status(200).send({
-      count: tickets.length,
-      tickets
-    });
+    const match = { isDeleted: { $ne: true }, ...filter };
+    if (req.query.status) match.ticketStatus = req.query.status;
+    if (req.query.priority) match.ticketPriority = req.query.priority;
+    if (req.query.category) match.category = req.query.category;
+    if (req.query.assignedTo) match.assignedTo = req.query.assignedTo;
 
+    const tickets = await Ticket.find(match).sort({ _id: -1 }).limit(limit);
+
+    res.status(200).json({ success: true, ...buildCursorResponse(tickets, limit) });
   } catch (err) {
-    console.error("Get all tickets error:", err);
-    res.status(500).send({ message: "Internal server error" });
+    console.error('Get all tickets error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
 exports.getMyTickets = async (req, res) => {
   try {
+    const { filter, limit } = buildCursorQuery(req);
+
     const tickets = await Ticket.find({
-      reportedBy: req.user.id
-    }).sort({ createdAt: -1 });
+      reportedBy: req.user.id,
+      isDeleted: { $ne: true },
+      ...filter,
+    })
+      .sort({ _id: -1 })
+      .limit(limit);
 
-    res.status(200).send({
-      count: tickets.length,
-      tickets
-    });
-
+    res.status(200).json({ success: true, ...buildCursorResponse(tickets, limit) });
   } catch (err) {
-    console.error("Get my tickets error:", err);
-    res.status(500).send({ message: "Internal server error" });
+    console.error('Get my tickets error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
+exports.getTicketsForEngineer = async (req, res) => {
+  try {
+    const { filter, limit } = buildCursorQuery(req);
+
+    const tickets = await Ticket.find({
+      assignedTo: req.user.id,
+      isDeleted: { $ne: true },
+      ...filter,
+    })
+      .sort({ _id: -1 })
+      .limit(limit);
+
+    res.status(200).json({ success: true, ...buildCursorResponse(tickets, limit) });
+  } catch (err) {
+    console.error('Engineer ticket error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// ── Assign ────────────────────────────────────────────────────────────────────
 
 exports.assignTicket = async (req, res) => {
   const ticketId = req.params.id;
@@ -97,86 +115,42 @@ exports.assignTicket = async (req, res) => {
 
   try {
     const engineer = await User.findOne({ userId: engineerId });
-    if (!engineer) return res.status(404).send({ message: "Engineer not found" });
+    if (!engineer) return res.status(404).json({ message: 'Engineer not found' });
 
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) return res.status(404).send({ message: "Ticket not found" });
+    const ticket = await Ticket.findOne({ _id: ticketId, isDeleted: { $ne: true } });
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    const previousAssigned = ticket.assignedTo || "None";
-
+    const previousAssigned = ticket.assignedTo || 'None';
     ticket.assignedTo = engineerId;
-    ticket.ticketStatus = "IN_PROGRESS";
+    ticket.ticketStatus = 'IN_PROGRESS';
     await ticket.save();
 
-   
-    await sendEmail(
-      engineer.email,
-      "New Ticket Assigned",
-      `Ticket "${ticket.title}" is assigned to you.`
-    );
-    await notifyUser(
-      engineer.userId,
-      "New Ticket Assigned",
-      `Ticket "${ticket.title}" is assigned to you.`
-    );
+    sendEmail(engineer.email, 'New Ticket Assigned', `Ticket "${ticket.title}" is assigned to you.`);
+    notifyUser(engineer.userId, 'New Ticket Assigned', `Ticket "${ticket.title}" is assigned to you.`);
+    logActivity(ticket._id, req.user.id, 'TICKET_ASSIGNED', `Previous: ${previousAssigned}`, `Assigned to: ${engineerId}`);
 
-    await logActivity(
-      ticket._id,
-      req.user.id,
-      "TICKET_ASSIGNED",
-      `Previous: ${previousAssigned}`,
-      `Assigned to: ${engineerId}`
-    );
-
-    res.status(200).send({ message: "Ticket assigned successfully", ticket });
-
+    res.status(200).json({ success: true, message: 'Ticket assigned successfully', ticket });
   } catch (err) {
-    console.error("Assign error:", err);
-    res.status(500).send({ message: "Internal server error" });
+    console.error('Assign error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-
-exports.getTicketsForEngineer = async (req, res) => {
-  try {
-    const tickets = await Ticket.find({ assignedTo: req.user.id  });
-    res.status(200).send(tickets);
-  } catch (err) {
-    console.error("Engineer ticket error:", err);
-    res.status(500).send({ message: "Internal server error" });
-  }
-};
+// ── Status Update ─────────────────────────────────────────────────────────────
 
 exports.updateStatus = async (req, res) => {
   const ticketId = req.params.id;
-  const ticketStatus = req.body?.ticketStatus;
-
-  // ✅ Validate body
-  if (!ticketStatus) {
-    return res.status(400).send({
-      message: "ticketStatus is required"
-    });
-  }
-
-  const allowedStatuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
-  if (!allowedStatuses.includes(ticketStatus)) {
-    return res.status(400).send({
-      message: "Invalid status"
-    });
-  }
+  const { ticketStatus } = req.body; // validated by Zod
 
   try {
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) {
-      return res.status(404).send({ message: "Ticket not found" });
-    }
+    const ticket = await Ticket.findOne({ _id: ticketId, isDeleted: { $ne: true } });
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     const oldStatus = ticket.ticketStatus;
 
-    // SLA logic
-    if (ticketStatus === "RESOLVED") {
+    if (ticketStatus === 'RESOLVED') {
       ticket.isOverdue = false;
-    } else if (["OPEN", "IN_PROGRESS"].includes(ticketStatus)) {
+    } else if (['OPEN', 'IN_PROGRESS'].includes(ticketStatus)) {
       if (ticket.slaDueAt && ticket.slaDueAt < new Date()) {
         ticket.isOverdue = true;
       }
@@ -185,152 +159,193 @@ exports.updateStatus = async (req, res) => {
     ticket.ticketStatus = ticketStatus;
     await ticket.save();
 
-    // ✅ Correct user lookup
     const customer = await User.findById(ticket.reportedBy);
-
-    // 🔥 Non-blocking side effects
     if (customer?.email) {
-      sendEmail(
-        customer.email,
-        "Ticket Status Updated",
-        `Your ticket "${ticket.title}" is now "${ticketStatus}".`
-      ).catch(err => console.error("Email failed:", err.message));
+      sendEmail(customer.email, 'Ticket Status Updated', `Your ticket "${ticket.title}" is now "${ticketStatus}".`);
     }
-
     if (customer?.userId) {
-      notifyUser(
-        customer.userId,
-        "Ticket Status Updated",
-        `Your ticket "${ticket.title}" is now "${ticketStatus}".`
-      ).catch(err => console.error("Notify failed:", err.message));
+      notifyUser(customer.userId, 'Ticket Status Updated', `Your ticket "${ticket.title}" is now "${ticketStatus}".`);
     }
 
-    await logActivity(
-      ticket._id,
-      req.user.id,
-      "STATUS_UPDATED",
-      `Old: ${oldStatus}`,
-      `New: ${ticketStatus}`
-    );
+    logActivity(ticket._id, req.user.id, 'STATUS_UPDATED', `Old: ${oldStatus}`, `New: ${ticketStatus}`);
 
-    return res.status(200).send({
-      message: "Ticket status updated successfully",
-      ticket
-    });
-
+    return res.status(200).json({ success: true, message: 'Ticket status updated successfully', ticket });
   } catch (err) {
-    console.error("Status update error:", err);
-    return res.status(500).send({
-      message: "Internal server error"
-    });
+    console.error('Status update error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
+// ── Attachments ───────────────────────────────────────────────────────────────
 
 exports.addAttachment = async (req, res) => {
   const ticketId = req.params.id;
 
   try {
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) {
-      return res.status(404).send({ message: "Ticket not found" });
-    }
+    const ticket = await Ticket.findOne({ _id: ticketId, isDeleted: { $ne: true } });
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    const newFiles = req.files.map(file => file.path); 
+    const newFiles = req.files.map((file) => file.path);
     ticket.attachments.push(...newFiles);
     await ticket.save();
 
-    res.status(200).send({
-      message: "Attachments uploaded successfully",
-      attachments: ticket.attachments
+    res.status(200).json({
+      success: true,
+      message: 'Attachments uploaded successfully',
+      attachments: ticket.attachments,
     });
-
   } catch (err) {
-    console.error("Attachment error:", err);
-    res.status(500).send({ message: "Internal Server Error" });
+    console.error('Attachment error:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
 
-
+// ── Feedback ──────────────────────────────────────────────────────────────────
 
 exports.addFeedback = async (req, res) => {
   const ticketId = req.params.id;
-  const { rating, feedback } = req.body;
-
-  if (!rating || rating < 1 || rating > 5) {
-    return res.status(400).send({ message: "Rating must be between 1 and 5" });
-  }
+  const { rating, feedback } = req.body; // validated by Zod
 
   try {
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) return res.status(404).send({ message: "Ticket not found" });
+    const ticket = await Ticket.findOne({ _id: ticketId, isDeleted: { $ne: true } });
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    if (ticket.reportedBy !== req.user.id ) {
-      return res.status(403).send({ message: "Not allowed to review this ticket" });
+    if (ticket.reportedBy.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Not allowed to review this ticket' });
     }
 
-    if (!["RESOLVED", "CLOSED"].includes(ticket.ticketStatus)) {
-      return res.status(400).send({ message: "You can rate only RESOLVED or CLOSED tickets" });
+    if (!['RESOLVED', 'CLOSED'].includes(ticket.ticketStatus)) {
+      return res.status(400).json({ message: 'You can rate only RESOLVED or CLOSED tickets' });
     }
 
     ticket.rating = rating;
     ticket.feedback = feedback;
     await ticket.save();
 
-    await notifyUser(
-      ticket.reportedBy,
-      "Feedback Submitted",
-      `Feedback for your ticket "${ticket.title}" has been submitted.`
-    );
+    notifyUser(ticket.reportedBy, 'Feedback Submitted', `Feedback for your ticket "${ticket.title}" has been submitted.`);
 
-    res.status(200).send({
-      message: "Feedback submitted successfully",
-      ticket
-    });
-
+    res.status(200).json({ success: true, message: 'Feedback submitted successfully', ticket });
   } catch (err) {
-    console.error("Feedback error:", err);
-    res.status(500).send({ message: "Internal server error" });
+    console.error('Feedback error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Bulk Operations
+// ── Bulk Operations ───────────────────────────────────────────────────────────
+
 exports.bulkAssignTickets = async (req, res) => {
-  const { ticketIds, engineerId } = req.body;
-  if (!ticketIds?.length || !engineerId) {
-    return res.status(400).json({ message: 'ticketIds and engineerId are required' });
-  }
+  const { ticketIds, engineerId } = req.body; // validated by Zod
+
   try {
-    const User = require('../models/user.model');
     const engineer = await User.findOne({ userId: engineerId });
     if (!engineer) return res.status(404).json({ message: 'Engineer not found' });
 
     const result = await Ticket.updateMany(
-      { _id: { $in: ticketIds } },
+      { _id: { $in: ticketIds }, isDeleted: { $ne: true } },
       { $set: { assignedTo: engineerId, ticketStatus: 'IN_PROGRESS' } }
     );
-    res.status(200).json({ message: `${result.modifiedCount} tickets assigned`, modifiedCount: result.modifiedCount });
+
+    res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} tickets assigned`,
+      modifiedCount: result.modifiedCount,
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
 exports.bulkUpdateStatus = async (req, res) => {
-  const { ticketIds, ticketStatus } = req.body;
-  const allowedStatuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
-  if (!ticketIds?.length || !ticketStatus) {
-    return res.status(400).json({ message: 'ticketIds and ticketStatus are required' });
-  }
-  if (!allowedStatuses.includes(ticketStatus)) {
-    return res.status(400).json({ message: 'Invalid status' });
-  }
+  const { ticketIds, ticketStatus } = req.body; // validated by Zod
+
   try {
     const result = await Ticket.updateMany(
-      { _id: { $in: ticketIds } },
+      { _id: { $in: ticketIds }, isDeleted: { $ne: true } },
       { $set: { ticketStatus } }
     );
-    res.status(200).json({ message: `${result.modifiedCount} tickets updated`, modifiedCount: result.modifiedCount });
+
+    res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} tickets updated`,
+      modifiedCount: result.modifiedCount,
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// ── Soft Delete & Restore (Fix #6) ────────────────────────────────────────────
+
+exports.softDeleteTicket = async (req, res) => {
+  try {
+    const ticket = await Ticket.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+    const RETENTION_DAYS = parseInt(process.env.SOFT_DELETE_RETENTION_DAYS || '30', 10);
+
+    ticket.isDeleted = true;
+    ticket.deletedAt = new Date();
+    ticket.deletedBy = req.user.id;
+    ticket.permanentDeleteAt = new Date(Date.now() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    await ticket.save();
+
+    logActivity(
+      ticket._id,
+      req.user.id,
+      'TICKET_DELETED',
+      null,
+      `Soft deleted. Permanent deletion after ${RETENTION_DAYS} days.`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Ticket soft-deleted. It will be permanently removed after ${RETENTION_DAYS} days.`,
+      permanentDeleteAt: ticket.permanentDeleteAt,
+    });
+  } catch (err) {
+    console.error('Soft delete error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.restoreTicket = async (req, res) => {
+  try {
+    const ticket = await Ticket.findOne({ _id: req.params.id, isDeleted: true });
+    if (!ticket) return res.status(404).json({ message: 'Deleted ticket not found' });
+
+    ticket.isDeleted = false;
+    ticket.deletedAt = null;
+    ticket.deletedBy = null;
+    ticket.permanentDeleteAt = null;
+    await ticket.save();
+
+    logActivity(ticket._id, req.user.id, 'TICKET_RESTORED', null, 'Ticket restored from recycle bin');
+
+    res.status(200).json({ success: true, message: 'Ticket restored successfully', ticket });
+  } catch (err) {
+    console.error('Restore error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.getDeletedTickets = async (req, res) => {
+  try {
+    const { filter, limit } = buildCursorQuery(req);
+
+    const tickets = await Ticket.find({
+      isDeleted: true,
+      ...filter,
+    })
+      .sort({ _id: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      message: 'Deleted tickets (recycle bin)',
+      ...buildCursorResponse(tickets, limit),
+    });
+  } catch (err) {
+    console.error('Get deleted tickets error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

@@ -26,7 +26,15 @@ const ticketSchema = new mongoose.Schema({
   lastEscalatedAt: { type: Date, default: null },
   rating: { type: Number, min: 1, max: 5 },
   feedback: { type: String },
-  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null }
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null },
+
+  // ── Soft Delete ─────────────────────────────────────────────────────────────
+  // isDeleted: true hides the ticket from all normal queries.
+  // permanentDeleteAt marks when a scheduled cleanup job should hard-delete the record.
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  permanentDeleteAt: { type: Date, default: null }
 }, { timestamps: true });
 
 // Indexes for performance
@@ -36,6 +44,8 @@ ticketSchema.index({ assignedTo: 1 });
 ticketSchema.index({ isOverdue: 1 });
 ticketSchema.index({ organizationId: 1 });
 ticketSchema.index({ tags: 1 });
+ticketSchema.index({ isDeleted: 1 });
+ticketSchema.index({ permanentDeleteAt: 1 }); // For scheduled hard-delete cleanup job
 ticketSchema.index({ title: 'text', description: 'text' });
 
 module.exports = mongoose.model("Ticket", ticketSchema);

@@ -27,6 +27,13 @@ const healthRoutes = require("./routes/health.routes");
 const webhookRoutes = require("./routes/webhook.routes");
 const twoFARoutes = require("./routes/twofa.routes");
 
+// ── Priority 2: CRM Features ─────────────────────────────────────────────────
+const leadRoutes = require("./routes/lead.routes");
+const contactRoutes = require("./routes/contact.routes");
+const accountRoutes = require("./routes/account.routes");
+const noteRoutes = require("./routes/note.routes");
+const emailInboxRoutes = require("./routes/emailInbox.routes");
+
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
@@ -90,6 +97,13 @@ apiRouter.use("/superadmin/dashboard", superAdminDashboardRoutes);
 apiRouter.use("/payment", paymentRoutes);
 apiRouter.use("/payment/history", paymentHistoryRoutes);
 apiRouter.use("/subscription", subscriptionRoutes);
+
+// ── Priority 2: CRM Features ─────────────────────────────────────────────────
+apiRouter.use("/leads", leadRoutes);
+apiRouter.use("/contacts", contactRoutes);
+apiRouter.use("/accounts", accountRoutes);
+apiRouter.use("/notes", noteRoutes);
+apiRouter.use("/email-inbox", emailInboxRoutes);
 
 app.use("/api/v1", apiRouter);
 

@@ -32,11 +32,12 @@ const SignupSchema = z.object({
     .trim(),
 
   userId: z
-    .string({ required_error: 'userId is required' })
+    .string()
     .min(3, 'userId must be at least 3 characters')
     .max(50, 'userId too long')
     .regex(/^[a-zA-Z0-9_-]+$/, 'userId can only contain letters, numbers, _ and -')
-    .trim(),
+    .trim()
+    .optional(), // Auto-generated from email if not supplied by the frontend
 
   email: emailField,
 

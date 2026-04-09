@@ -28,7 +28,15 @@ function getRedis() {
 }
 
 exports.signup = async (req, res) => {
-  const { name, userId, email, userType, password } = req.body;
+  let { name, userId, email, userType, password } = req.body;
+
+  // Auto-generate userId from email prefix if the frontend didn't send one
+  // e.g. "anuj@gmail.com" → "anuj_a3f2" (suffix ensures uniqueness)
+  if (!userId) {
+    const prefix = email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20) || 'user';
+    const suffix = Math.random().toString(36).slice(2, 6); // 4-char random suffix
+    userId = `${prefix}_${suffix}`;
+  }
 
   const userStatus =
     !userType || userType === constants.userTypes.customer

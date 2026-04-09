@@ -56,6 +56,20 @@ const webhookQueue = new Queue('webhook', {
 });
 
 /**
+ * Reminder Queue — repeatable job every 5 minutes.
+ * Processes Note reminders and Lead follow-ups.
+ */
+const reminderQueue = new Queue('reminder', {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'fixed', delay: 5000 },
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 200 },
+  },
+});
+
+/**
  * SLA Queue — repeatable jobs scheduled via BullMQ cron.
  * Jobs: { type: 'check' | 'escalate' }
  */
@@ -132,9 +146,24 @@ async function registerSlaJobs() {
       }
     );
 
-    logger.info('SLA repeatable jobs registered in BullMQ');
+    // Reminder check — every 5 minutes
+    const existingReminders = await reminderQueue.getRepeatableJobs();
+    for (const job of existingReminders) {
+      await reminderQueue.removeRepeatableByKey(job.key);
+    }
+
+    await reminderQueue.add(
+      'reminder-check',
+      {},
+      {
+        repeat: { every: 5 * 60 * 1000 },
+        jobId: 'reminder-check-repeatable',
+      }
+    );
+
+    logger.info('SLA + Reminder repeatable jobs registered in BullMQ');
   } catch (err) {
-    logger.error('Failed to register SLA jobs: ' + err.message);
+    logger.error('Failed to register repeatable jobs: ' + err.message);
   }
 }
 
@@ -142,6 +171,7 @@ module.exports = {
   emailQueue,
   webhookQueue,
   slaQueue,
+  reminderQueue,
   connection,
   queueEmail,
   queueWebhook,
